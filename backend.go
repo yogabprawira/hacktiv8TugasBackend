@@ -247,6 +247,99 @@ func articlesAddIdPost(c *gin.Context) {
 	c.JSON(http.StatusOK, respStatus)
 }
 
+func articlesIdPublishPost(c *gin.Context) {
+	var respStatus RespStatus
+	respStatus.Status = http.StatusNotFound
+	respStatus.Message = ""
+	var postId PostId
+	err := c.ShouldBindUri(&postId)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
+	var session Session
+	err = c.ShouldBind(&session)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
+	// session validation
+	id, err := strconv.Atoi(postId.Id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
+	_, err = stmtArticlesIdPublish.Exec(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
+	respStatus.Status = http.StatusOK
+	c.JSON(http.StatusOK, respStatus)
+}
+
+func articlesIdUnpublishPost(c *gin.Context) {
+	var respStatus RespStatus
+	respStatus.Status = http.StatusNotFound
+	respStatus.Message = ""
+	var postId PostId
+	err := c.ShouldBindUri(&postId)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
+	var session Session
+	err = c.ShouldBind(&session)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
+	// session validation
+	id, err := strconv.Atoi(postId.Id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
+	_, err = stmtArticlesIdUnpublish.Exec(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
+	respStatus.Status = http.StatusOK
+	c.JSON(http.StatusOK, respStatus)
+}
+
+func articlesIdDeletePost(c *gin.Context) {
+	var respStatus RespStatus
+	respStatus.Status = http.StatusNotFound
+	respStatus.Message = ""
+	var postId PostId
+	err := c.ShouldBindUri(&postId)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
+	var session Session
+	err = c.ShouldBind(&session)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
+	// session validation
+	id, err := strconv.Atoi(postId.Id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
+	_, err = stmtArticlesIdDelete.Exec(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
+	respStatus.Status = http.StatusOK
+	c.JSON(http.StatusOK, respStatus)
+}
+
 var db *sql.DB
 var stmtHome *sql.Stmt
 var stmtArticles *sql.Stmt
@@ -255,6 +348,9 @@ var stmtContact *sql.Stmt
 var stmtArticlesId *sql.Stmt
 var stmtArticlesAdd *sql.Stmt
 var stmtArticlesAddId *sql.Stmt
+var stmtArticlesIdPublish *sql.Stmt
+var stmtArticlesIdUnpublish *sql.Stmt
+var stmtArticlesIdDelete *sql.Stmt
 
 const UserDb = "root"
 const PwdDb = "yoga123"
@@ -295,6 +391,18 @@ func init() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	stmtArticlesIdPublish, err = db.Prepare("update `post` set is_published = 1 where post_id = ?;")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	stmtArticlesIdUnpublish, err = db.Prepare("update `post` set is_published = 0 where post_id = ?;")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	stmtArticlesIdDelete, err = db.Prepare("delete from `post` where post_id = ?;")
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
 
 func main() {
@@ -307,6 +415,9 @@ func main() {
 	router.POST("/logout", logout)
 	router.POST("/articles", articlesPost)
 	router.POST("/articles/id/:id", articlesIdPost)
+	router.POST("/articles/id/:id/publish", articlesIdPublishPost)
+	router.POST("/articles/id/:id/unpublish", articlesIdUnpublishPost)
+	router.POST("/articles/id/:id/delete", articlesIdDeletePost)
 	router.POST("/articles/add", articlesAddPost)
 	router.POST("/articles/add/:id", articlesAddIdPost)
 	err := router.Run(":8080")
