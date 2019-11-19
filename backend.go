@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
+	"strconv"
 
 	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
@@ -177,14 +178,18 @@ func articlesIdPost(c *gin.Context) {
 		return
 	}
 	// session validation
-	rows, err := stmtArticlesId.Query(postId)
+	id, err := strconv.Atoi(postId.Id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, post)
+		return
+	}
+	rows, err := stmtArticlesId.Query(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, post)
 		return
 	}
 	for rows.Next() {
 		err = rows.Scan(&post.Title, &post.Content, &post.Author, &post.TimePublished, &post.IsPublished)
-		log.Println(post)
 		if err != nil {
 			c.JSON(http.StatusNotFound, post)
 			return
@@ -293,6 +298,7 @@ func init() {
 }
 
 func main() {
+	//gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	router.GET("/home", home)
 	router.POST("/message", messagePost)
