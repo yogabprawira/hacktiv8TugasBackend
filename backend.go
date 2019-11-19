@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
+	"reflect"
 	"strconv"
 
 	"database/sql"
@@ -44,13 +45,20 @@ type Session struct {
 }
 
 type RespLogin struct {
-	Session string     `json:"session"`
-	Resp    RespStatus `json:"resp"`
+	Session  Session    `json:"session"`
+	Username string     `json:"username"`
+	Name     string     `json:"name"`
+	Resp     RespStatus `json:"resp"`
 }
 
 type Login struct {
-	Email    string `json:"email" form:"inputEmail"`
+	Username string `json:"username" form:"inputUsername"`
 	Password string `json:"password" form:"inputPassword"`
+}
+
+type ReqLogin struct {
+	Session Session `json:"session"`
+	Login   Login   `json:"login"`
 }
 
 type PostId struct {
@@ -60,6 +68,17 @@ type PostId struct {
 type SubmitPost struct {
 	Session Session `json:"session"`
 	Post    Post    `json:"post"`
+}
+
+func checkSession(token string) bool {
+	rows, err := stmtCheckSession.Query(token)
+	if err != nil {
+		return false
+	}
+	for rows.Next() {
+		return true
+	}
+	return false
 }
 
 func home(c *gin.Context) {
@@ -110,7 +129,10 @@ func contactPost(c *gin.Context) {
 		c.JSON(http.StatusNotFound, msgs)
 		return
 	}
-	// session validation
+	if !checkSession(session.Token) {
+		c.JSON(http.StatusNotFound, msgs)
+		return
+	}
 	rows, err := stmtContact.Query()
 	if err != nil {
 		c.JSON(http.StatusNotFound, msgs)
@@ -129,11 +151,47 @@ func contactPost(c *gin.Context) {
 }
 
 func login(c *gin.Context) {
-
-}
-
-func logout(c *gin.Context) {
-	// remove session
+	var reqLogin ReqLogin
+	var respLogin RespLogin
+	respLogin.Resp.Status = http.StatusNotFound
+	respLogin.Resp.Message = ""
+	err := c.ShouldBind(&reqLogin)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respLogin)
+		return
+	}
+	rows, err := stmtCheckLogin.Query(reqLogin.Login.Username)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respLogin)
+		return
+	}
+	isMatch := false
+	var name string
+	for rows.Next() {
+		var pwd string
+		err = rows.Scan(&pwd, &name)
+		if err != nil {
+			continue
+		}
+		if reflect.DeepEqual(pwd, reqLogin.Login.Password) {
+			isMatch = true
+			break
+		}
+	}
+	if !isMatch {
+		c.JSON(http.StatusNotFound, respLogin)
+		return
+	}
+	_, err = stmtLogin.Exec(reqLogin.Session.Token, reqLogin.Login.Username)
+	if err != nil {
+		c.JSON(http.StatusNotFound, respLogin)
+		return
+	}
+	respLogin.Resp.Status = http.StatusOK
+	respLogin.Username = reqLogin.Login.Username
+	respLogin.Name = name
+	respLogin.Session.Token = reqLogin.Session.Token
+	c.JSON(http.StatusNotFound, respLogin)
 }
 
 func articlesPost(c *gin.Context) {
@@ -145,7 +203,10 @@ func articlesPost(c *gin.Context) {
 		c.JSON(http.StatusNotFound, posts)
 		return
 	}
-	// session validation
+	if !checkSession(session.Token) {
+		c.JSON(http.StatusNotFound, posts)
+		return
+	}
 	rows, err := stmtArticles.Query()
 	if err != nil {
 		c.JSON(http.StatusNotFound, posts)
@@ -177,7 +238,10 @@ func articlesIdPost(c *gin.Context) {
 		c.JSON(http.StatusNotFound, post)
 		return
 	}
-	// session validation
+	if !checkSession(session.Token) {
+		c.JSON(http.StatusNotFound, post)
+		return
+	}
 	id, err := strconv.Atoi(postId.Id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, post)
@@ -195,7 +259,6 @@ func articlesIdPost(c *gin.Context) {
 			return
 		}
 	}
-	log.Println(post)
 	c.JSON(http.StatusOK, post)
 }
 
@@ -209,7 +272,10 @@ func articlesAddPost(c *gin.Context) {
 		c.JSON(http.StatusNotFound, respStatus)
 		return
 	}
-	// session validation
+	if !checkSession(submitPost.Session.Token) {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
 	_, err = stmtArticlesAdd.Exec(submitPost.Post.Title, submitPost.Post.Content, submitPost.Post.Author,
 		submitPost.Post.TimePublished, submitPost.Post.IsPublished)
 	if err != nil {
@@ -236,7 +302,10 @@ func articlesAddIdPost(c *gin.Context) {
 		c.JSON(http.StatusNotFound, respStatus)
 		return
 	}
-	// session validation
+	if !checkSession(submitPost.Session.Token) {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
 	_, err = stmtArticlesAddId.Exec(submitPost.Post.Title, submitPost.Post.Content, submitPost.Post.Author,
 		submitPost.Post.TimePublished, submitPost.Post.IsPublished, submitPost.Post.Id)
 	if err != nil {
@@ -263,7 +332,10 @@ func articlesIdPublishPost(c *gin.Context) {
 		c.JSON(http.StatusNotFound, respStatus)
 		return
 	}
-	// session validation
+	if !checkSession(session.Token) {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
 	id, err := strconv.Atoi(postId.Id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, respStatus)
@@ -294,7 +366,10 @@ func articlesIdUnpublishPost(c *gin.Context) {
 		c.JSON(http.StatusNotFound, respStatus)
 		return
 	}
-	// session validation
+	if !checkSession(session.Token) {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
 	id, err := strconv.Atoi(postId.Id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, respStatus)
@@ -325,7 +400,10 @@ func articlesIdDeletePost(c *gin.Context) {
 		c.JSON(http.StatusNotFound, respStatus)
 		return
 	}
-	// session validation
+	if !checkSession(session.Token) {
+		c.JSON(http.StatusNotFound, respStatus)
+		return
+	}
 	id, err := strconv.Atoi(postId.Id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, respStatus)
@@ -351,6 +429,9 @@ var stmtArticlesAddId *sql.Stmt
 var stmtArticlesIdPublish *sql.Stmt
 var stmtArticlesIdUnpublish *sql.Stmt
 var stmtArticlesIdDelete *sql.Stmt
+var stmtCheckSession *sql.Stmt
+var stmtLogin *sql.Stmt
+var stmtCheckLogin *sql.Stmt
 
 const UserDb = "root"
 const PwdDb = "yoga123"
@@ -403,6 +484,18 @@ func init() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	stmtCheckSession, err = db.Prepare("select session from `user` where session = ?;")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	stmtLogin, err = db.Prepare("update `user` set session = ? where username = ?;")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	stmtCheckLogin, err = db.Prepare("select password_hash, name from `user` where username = ?;")
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
 
 func main() {
@@ -412,7 +505,6 @@ func main() {
 	router.POST("/message", messagePost)
 	router.POST("/contact", contactPost)
 	router.POST("/login", login)
-	router.POST("/logout", logout)
 	router.POST("/articles", articlesPost)
 	router.POST("/articles/id/:id", articlesIdPost)
 	router.POST("/articles/id/:id/publish", articlesIdPublishPost)

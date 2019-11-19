@@ -11,7 +11,7 @@ CREATE TABLE `user` (
     PRIMARY KEY (`uid`)
 );
 
-INSERT into `user` values (null, 'yoga', 'Yoga Budhi Prawira', '', '');
+INSERT into `user` values (null, 'yoga', 'Yoga Budhi Prawira', 'YqqFOtlfQgRR7cIIT3TDWtZBP60gYvpFDnnanp8gedU=', '');
 
 CREATE TABLE `post` (
     `post_id` INT NOT NULL AUTO_INCREMENT,
